@@ -32,7 +32,6 @@ def create_file_control(index, filename):
                 step=0.5,
                 value=0,
                 updatemode="drag",
-                # Larger font for marks:
                 marks={
                     -10: {'label': "-10", 'style': {'fontSize': '18px'}},
                      0:  {'label': "0",   'style': {'fontSize': '18px'}},
@@ -89,6 +88,9 @@ def create_layout(app):
     # Store to hold the current file list.
     file_store = dcc.Store(id="file-store", data=[])
 
+    # Store to track whether legend is shown (True) or hidden (False). Defaults to True.
+    legend_store = dcc.Store(id="legend-store", data=True)
+
     # Ratio controls placed above the angle sliders.
     ratio_controls = html.Div([
         html.Div([
@@ -124,7 +126,6 @@ def create_layout(app):
     ], style={'margin': '20px 10px', 'textAlign': 'center'})
 
     # Global slider controls.
-    # Let's build the marks with bigger font:
     angle_marks = {i: {'label': str(i), 'style': {'fontSize': '18px'}} for i in range(0, 101, 10)}
     global_sep_marks = {i: {'label': str(i), 'style': {'fontSize': '18px'}} for i in range(0, 101, 10)}
 
@@ -189,6 +190,23 @@ def create_layout(app):
             'borderRadius': '5px'
         }
     )
+
+    # NEW LEGEND BUTTON
+    legend_button = html.Button(
+        "Legend",
+        id="legend-button",
+        n_clicks=0,
+        style={
+            'padding': '15px 20px',
+            'fontSize': '16px',
+            'backgroundColor': 'purple',
+            'border': 'none',
+            'color': 'white',
+            'borderRadius': '5px',
+            'marginLeft': '10px'
+        }
+    )
+
     save_white_button = html.Button(
         "Save Plot (White BG)", 
         id="save-white-button", 
@@ -217,10 +235,11 @@ def create_layout(app):
     )
     download_component = dcc.Download(id="download")
 
-    # Arrange Reset and Save buttons on the same horizontal line.
+    # Arrange Reset, Legend, and Save buttons on the same horizontal line.
     button_row = html.Div(
         [
             reset_button,
+            legend_button,  # <--- The new Legend button is placed here
             html.Div(
                 [
                     save_white_button,
@@ -271,13 +290,13 @@ def create_layout(app):
         style={'width': '50%'}
     )
 
-    # Main layout: file store and a two-column layout for graph and controls.
+    # Main layout: file store, legend store, and a two-column layout for graph and controls.
     layout = html.Div([
         file_store,
+        legend_store,  # <--- Add the legend store here
         html.Div([graph_container, controls_container],
                  style={'display': 'flex', 'flexDirection': 'row', 'width': '100%'})
     ], 
-    # Enforce a bigger default font:
     style={'font-family': 'Dejavu Sans', 'fontSize': '18px'}
     )
     

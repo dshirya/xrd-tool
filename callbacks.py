@@ -59,7 +59,17 @@ def register_callbacks(app):
             return []
         return [create_file_control(i, file["filename"]) for i, file in enumerate(files)]
 
-    # Callback: Update the graph based on slider inputs and current files.
+    # Callback: Toggle the legend store (flip True/False) when legend button is clicked.
+    @app.callback(
+        Output("legend-store", "data"),
+        Input("legend-button", "n_clicks"),
+        State("legend-store", "data"),
+        prevent_initial_call=True
+    )
+    def toggle_legend(n_clicks, show_legend):
+        return not show_legend
+
+    # Callback: Update the graph based on slider inputs, files, and legend visibility.
     @app.callback(
         Output('graph', 'figure'),
         Input('angle-min-slider', 'value'),
@@ -67,9 +77,10 @@ def register_callbacks(app):
         Input('global-sep-slider', 'value'),
         Input({'type': 'bg-slider', 'index': ALL}, 'value'),
         Input({'type': 'int-slider', 'index': ALL}, 'value'),
-        Input('file-store', 'data')
+        Input('file-store', 'data'),
+        Input('legend-store', 'data')  # <--- Legend visibility
     )
-    def update_graph(angle_min, angle_max, global_sep, bg_values, int_values, files):
+    def update_graph(angle_min, angle_max, global_sep, bg_values, int_values, files, show_legend):
         if not files:
             return go.Figure()
         # Ensure slider values lists match the number of files.
@@ -77,9 +88,22 @@ def register_callbacks(app):
             bg_values = [0] * len(files)
         if not int_values or len(int_values) != len(files):
             int_values = [100] * len(files)
-        return generate_figure(angle_min, angle_max, global_sep, bg_values, int_values, files)
 
-    # Combined Callback: Update angle sliders from file-store changes, reset-button clicks, or graph relayout.
+        fig = generate_figure(angle_min, angle_max, global_sep, bg_values, int_values, files)
+        # Here we apply the legend visibility:
+        fig.update_layout(
+            legend=dict(
+                font=dict(family="Dejavu Sans", size=20),
+                yanchor='top',
+                xanchor='right',
+                x=0.99,
+                y=0.99,
+            ),
+            showlegend=show_legend
+        )
+        return fig
+
+    # Combined Callback: Update angle sliders from file-store changes, reset-button, or graph relayout.
     @app.callback(
         Output('angle-min-slider', 'value'),
         Output('angle-max-slider', 'value'),
@@ -95,7 +119,7 @@ def register_callbacks(app):
             return current_min, current_max
 
         trigger = ctx.triggered[0]['prop_id']
-        # If the file-store was updated or reset is clicked, update to computed defaults.
+        # If file-store was updated or reset is clicked, update to computed defaults.
         if trigger.startswith("file-store") or trigger.startswith("reset-button"):
             if files:
                 new_min, new_max = compute_default_angles(files)
@@ -154,6 +178,7 @@ def register_callbacks(app):
             return {'position': 'relative', 'width': '100%', 'paddingBottom': '75%'}
 
     # Callback: Save the current plot in high resolution using the selected ratio.
+        # Callback: Save the current plot in high resolution using the selected ratio.
     @app.callback(
         Output("download", "data"),
         Input("save-white-button", "n_clicks"),
@@ -166,13 +191,15 @@ def register_callbacks(app):
         State('file-store', 'data'),
         State('width-ratio-input', 'value'),
         State('height-ratio-input', 'value'),
+        State('legend-store', 'data'),  # New state to capture legend toggle
         prevent_initial_call=True
     )
     def save_plot(n_white, n_transparent, angle_min, angle_max, global_sep,
-                  bg_values, int_values, files, width_ratio, height_ratio):
+                  bg_values, int_values, files, width_ratio, height_ratio, show_legend):
         if not files:
             return dash.no_update
         
+        # Generate the figure as usual.
         fig = generate_figure(angle_min, angle_max, global_sep, bg_values, int_values, files)
         
         ctx = callback_context
@@ -186,7 +213,19 @@ def register_callbacks(app):
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)"
             )
-        # Otherwise (save-white-button), let the default (white) background remain.
+        # Otherwise (save-white-button), keep white background.
+        
+        # Apply the legend configuration and visibility.
+        fig.update_layout(
+            legend=dict(
+                font=dict(family="Dejavu Sans", size=20),
+                yanchor='top',
+                xanchor='right',
+                x=0.99,
+                y=0.99,
+            ),
+            showlegend=show_legend
+        )
         
         try:
             w_ratio = float(width_ratio)
