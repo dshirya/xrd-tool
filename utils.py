@@ -57,15 +57,19 @@ def generate_figure(angle_min, angle_max, global_sep, bg_values, int_values, fil
     
     # Update layout with increased font sizes for titles and legend.
     fig.update_layout(
-        xaxis_title="2<i>θ</i>",
-        xaxis_title_font=dict(family="Dejavu Sans", size=30),
-        yaxis_title="Intensity (a.u.)",
-        yaxis_title_font=dict(family="Dejavu Sans", size=30),
+        xaxis_title="diffraction angle, 2<i>θ</i>",
+        xaxis_title_font=dict(family="Dejavu Sans", size=22),
+        yaxis_title="intensity, a.u.",
+        yaxis_title_font=dict(family="Dejavu Sans", size=22),
         template="simple_white",
         autosize=True,
         margin=dict(l=50, r=50, t=50, b=50),
         legend=dict(
-            font=dict(family="Dejavu Sans", size=20)
+            font=dict(family="Dejavu Sans", size=20),
+            yanchor='top',
+            xanchor='right',
+            x=0.99,
+            y=0.99,
         )
     )
     
@@ -78,7 +82,7 @@ def generate_figure(angle_min, angle_max, global_sep, bg_values, int_values, fil
         fig.update_xaxes(
             tick0=angle_min,
             dtick=1,
-            tickfont=dict(family="Dejavu Sans", size=20),
+            tickfont=dict(family="Dejavu Sans", size=22),
             ticks="outside",
             ticklen=10,
             showline=True,
@@ -90,8 +94,8 @@ def generate_figure(angle_min, angle_max, global_sep, bg_values, int_values, fil
         # and minor ticks every 1° (as small marks).
         fig.update_xaxes(
             tick0=angle_min,
-            dtick=5,  # Major ticks every 5 degrees
-            tickfont=dict(family="Dejavu Sans", size=20),
+            dtick=10,  # Major ticks every 5 degrees
+            tickfont=dict(family="Dejavu Sans", size=22),
             ticks="outside",
             ticklen=10,
             showline=True,
@@ -107,7 +111,7 @@ def generate_figure(angle_min, angle_max, global_sep, bg_values, int_values, fil
     
     # Configure y-axis with a complete box and proper tick fonts.
     fig.update_yaxes(
-        tickfont=dict(family="Dejavu Sans", size=20),
+        tickfont=dict(family="Dejavu Sans", size=22),
         showline=True,
         mirror=True,
         automargin=True
