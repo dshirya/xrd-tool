@@ -41,7 +41,7 @@ def generate_figure(angle_min, angle_max, global_sep, bg_values, int_values, fil
         y_max = np.max(y_smoothed)
         if y_max - y_min == 0:
             y_normalized = y_smoothed - y_min
-        else:
+        else: 
             y_normalized = (y_smoothed - y_min) / (y_max - y_min)
         y_scaled = y_normalized * intensity
         
@@ -78,10 +78,11 @@ def generate_figure(angle_min, angle_max, global_sep, bg_values, int_values, fil
     
     # Configure x-axis tick settings based on the range.
     if x_range < 15:
-        # For ranges less than 15°, label every tick (1° interval).
+        # Create a list of integer tick marks within the angle range.
+        tick_values = list(range(int(np.ceil(angle_min)), int(np.floor(angle_max)) + 1))
         fig.update_xaxes(
-            tick0=angle_min,
-            dtick=1,
+            tickmode="array",
+            tickvals=tick_values,
             tickfont=dict(family="Dejavu Sans", size=22),
             ticks="outside",
             ticklen=10,
@@ -90,11 +91,13 @@ def generate_figure(angle_min, angle_max, global_sep, bg_values, int_values, fil
             automargin=True
         )
     else:
-        # For larger ranges, use major ticks every 5° with labels
+        # For larger ranges, use major ticks every 10° with labels
         # and minor ticks every 1° (as small marks).
+        major_start = int(np.floor(angle_min / 10.0)) * 10
         fig.update_xaxes(
-            tick0=angle_min,
-            dtick=10,  # Major ticks every 5 degrees
+            tickmode="linear",
+            tick0=major_start,    # first major tick is multiple of 10 at or below angle_min
+            dtick=10,             # major ticks every 10
             tickfont=dict(family="Dejavu Sans", size=22),
             ticks="outside",
             ticklen=10,
@@ -103,7 +106,8 @@ def generate_figure(angle_min, angle_max, global_sep, bg_values, int_values, fil
             automargin=True,
             minor=dict(
                 tickmode="linear",
-                dtick=1,  # Minor ticks every 1 degree
+                tick0=int(np.floor(angle_min)),  # first minor tick is integer at or below angle_min
+                dtick=1,                         # minor ticks every 1 degree
                 ticks="inside",
                 ticklen=4
             )

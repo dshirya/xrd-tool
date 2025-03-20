@@ -2,9 +2,30 @@ import dash
 import plotly.graph_objects as go
 from dash import dcc, Input, Output, State, ALL, callback_context
 import plotly.io as pio
+import numpy as np
+import io
+
 from utils import generate_figure, parse_contents
 from layout import create_file_control
 
+def compute_default_angles(files):
+    """
+    Computes the default min and max angles from the uploaded files.
+    Reads the first column from each file (parsed as a string) using np.genfromtxt.
+    """
+    all_angles = []
+    for file in files:
+        try:
+            data = np.genfromtxt(io.StringIO(file["content"]))
+            if data.ndim < 2 or data.shape[1] < 2:
+                continue
+            angles = data[:, 0]
+            all_angles.extend(angles)
+        except Exception:
+            continue
+    if all_angles:
+        return float(min(all_angles)), float(max(all_angles))
+    return 10, 90  # Fallback defaults if no valid data is found.
 
 def register_callbacks(app):
     # Callback: Update the file store when files are uploaded.
@@ -17,7 +38,7 @@ def register_callbacks(app):
     def update_file_store(upload_contents, upload_filenames, current_files):
         current_files = current_files or []
         if upload_contents is not None:
-            # Normalize to list and use list comprehension.
+            # Normalize to list.
             if not isinstance(upload_contents, list):
                 upload_contents = [upload_contents]
                 upload_filenames = [upload_filenames]
@@ -58,34 +79,46 @@ def register_callbacks(app):
             int_values = [100] * len(files)
         return generate_figure(angle_min, angle_max, global_sep, bg_values, int_values, files)
 
-    # Callback: Update angle sliders based on graph interactions or reset button.
+    # Combined Callback: Update angle sliders from file-store changes, reset-button clicks, or graph relayout.
     @app.callback(
         Output('angle-min-slider', 'value'),
         Output('angle-max-slider', 'value'),
+        Input('file-store', 'data'),
         Input('graph', 'relayoutData'),
         Input('reset-button', 'n_clicks'),
         State('angle-min-slider', 'value'),
         State('angle-max-slider', 'value')
     )
-    def update_angle_sliders_and_reset(relayoutData, n_clicks, current_min, current_max):
+    def update_angle_sliders_combined(files, relayoutData, n_clicks, current_min, current_max):
         ctx = callback_context
         if not ctx.triggered:
             return current_min, current_max
 
-        trigger = ctx.triggered[0]['prop_id'].split('.')[0]
-        if trigger == "reset-button":
+        trigger = ctx.triggered[0]['prop_id']
+        # If the file-store was updated or reset is clicked, update to computed defaults.
+        if trigger.startswith("file-store") or trigger.startswith("reset-button"):
+            if files:
+                new_min, new_max = compute_default_angles(files)
+                return new_min, new_max
             return 10, 90
 
-        if relayoutData:
-            if 'xaxis.autorange' in relayoutData:
-                return 10, 90
-            if 'xaxis.range[0]' in relayoutData and 'xaxis.range[1]' in relayoutData:
-                try:
-                    new_min = int(float(relayoutData['xaxis.range[0]']))
-                    new_max = int(float(relayoutData['xaxis.range[1]']))
-                    return new_min, new_max
-                except Exception:
-                    pass
+        # If the graph relayout triggered this callback.
+        if trigger.startswith("graph"):
+            if relayoutData:
+                if 'xaxis.autorange' in relayoutData:
+                    if files:
+                        new_min, new_max = compute_default_angles(files)
+                        return new_min, new_max
+                    return 10, 90
+                if 'xaxis.range[0]' in relayoutData and 'xaxis.range[1]' in relayoutData:
+                    try:
+                        new_min = float(relayoutData['xaxis.range[0]'])
+                        new_max = float(relayoutData['xaxis.range[1]'])
+                        return new_min, new_max
+                    except Exception:
+                        pass
+            return current_min, current_max
+
         return current_min, current_max
 
     # Callback: Reset global separation and per-file controls.
@@ -118,26 +151,58 @@ def register_callbacks(app):
             padding_bottom = f"{(h / w) * 100}%"
             return {'position': 'relative', 'width': '100%', 'paddingBottom': padding_bottom}
         except Exception:
-            # Default to 4:3 aspect ratio if parsing fails.
             return {'position': 'relative', 'width': '100%', 'paddingBottom': '75%'}
 
-    # Callback: Save the current plot in high resolution when the save button is clicked.
+    # Callback: Save the current plot in high resolution using the selected ratio.
     @app.callback(
         Output("download", "data"),
-        Input("save-button", "n_clicks"),
+        Input("save-white-button", "n_clicks"),
+        Input("save-transparent-button", "n_clicks"),
         State('angle-min-slider', 'value'),
         State('angle-max-slider', 'value'),
         State('global-sep-slider', 'value'),
         State({'type': 'bg-slider', 'index': ALL}, 'value'),
         State({'type': 'int-slider', 'index': ALL}, 'value'),
         State('file-store', 'data'),
+        State('width-ratio-input', 'value'),
+        State('height-ratio-input', 'value'),
         prevent_initial_call=True
     )
-    def save_plot(n_clicks, angle_min, angle_max, global_sep, bg_values, int_values, files):
+    def save_plot(n_white, n_transparent, angle_min, angle_max, global_sep,
+                  bg_values, int_values, files, width_ratio, height_ratio):
         if not files:
             return dash.no_update
+        
         fig = generate_figure(angle_min, angle_max, global_sep, bg_values, int_values, files)
-        img_bytes = pio.to_image(fig, format='png', width=1600, height=1200, scale=2)
+        
+        ctx = callback_context
+        if not ctx.triggered:
+            raise dash.exceptions.PreventUpdate
+        trigger = ctx.triggered[0]['prop_id']
+        
+        # If the transparent button was clicked, set a transparent background.
+        if trigger.startswith("save-transparent-button"):
+            fig.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)"
+            )
+        # Otherwise (save-white-button), let the default (white) background remain.
+        
+        try:
+            w_ratio = float(width_ratio)
+            h_ratio = float(height_ratio)
+            height = int(800 * (h_ratio / w_ratio))
+        except Exception:
+            height = 600
+
+        img_bytes = pio.to_image(fig, format='png', width=800, height=height, scale=4)
         def write_bytes(bytes_io):
             bytes_io.write(img_bytes)
-        return dcc.send_bytes(write_bytes, "plot.png")
+        
+        # Set filename based on button type.
+        if trigger.startswith("save-white-button"):
+            filename = "plot_white.png"
+        else:
+            filename = "plot_transparent.png"
+        
+        return dcc.send_bytes(write_bytes, filename)

@@ -1,12 +1,15 @@
 from dash import dcc, html
+import dash
 
 def create_file_control(index, filename):
     """
     Creates the layout for per-file controls.
-    Removes the '.xy' extension from the filename if it exists.
+    Removes the '.xy' extension (case insensitive) from the filename if it exists.
     The filename is rendered in a fixed-width container with text truncation.
     """
-    corrected_filename = filename.replace(".xy", "")
+    corrected_filename = filename
+    if corrected_filename.lower().endswith('.xy'):
+        corrected_filename = corrected_filename[:-3]
     return html.Div([
         html.Div(
             corrected_filename,
@@ -18,9 +21,9 @@ def create_file_control(index, filename):
                 'textOverflow': 'ellipsis',
                 'whiteSpace': 'nowrap'
             },
-            title=corrected_filename  # Displays the full filename on hover.
+            title=corrected_filename
         ),
-        html.Label("BG:", style={'margin-left': '20px'}),
+        html.Label("BG", style={'margin-left': '20px'}),
         html.Div(
             dcc.Slider(
                 id={'type': 'bg-slider', 'index': index},
@@ -29,12 +32,17 @@ def create_file_control(index, filename):
                 step=0.5,
                 value=0,
                 updatemode="drag",
-                marks={-10: "-10", 0: "0", 50: "50"},
+                # Larger font for marks:
+                marks={
+                    -10: {'label': "-10", 'style': {'fontSize': '18px'}},
+                     0:  {'label': "0",   'style': {'fontSize': '18px'}},
+                     50: {'label': "50",  'style': {'fontSize': '18px'}}
+                },
                 tooltip={"placement": "bottom", "always_visible": True}
             ),
             style={'display': 'inline-block', 'margin-left': '10px', 'width': '80%'}
         ),
-        html.Label("Int:", style={'margin-left': '20px'}),
+        html.Label("Int", style={'margin-left': '20px'}),
         html.Div(
             dcc.Slider(
                 id={'type': 'int-slider', 'index': index},
@@ -43,7 +51,11 @@ def create_file_control(index, filename):
                 step=1,
                 value=100,
                 updatemode="drag",
-                marks={1: "1", 100: "100", 200: "200"},
+                marks={
+                    1:   {'label': "1",   'style': {'fontSize': '18px'}},
+                    100: {'label': "100", 'style': {'fontSize': '18px'}},
+                    200: {'label': "200", 'style': {'fontSize': '18px'}}
+                },
                 tooltip={"placement": "bottom", "always_visible": True}
             ),
             style={'display': 'inline-block', 'margin-left': '10px', 'width': '80%'}
@@ -51,7 +63,7 @@ def create_file_control(index, filename):
     ], style={'display': 'flex', 'align-items': 'center', 'margin-bottom': '20px'})
 
 def create_layout(app):
-    # Upload component for drag & drop .xy files with light grey background.
+    # Upload component for drag & drop .xy files with a light grey background.
     upload_component = dcc.Upload(
         id="upload-data",
         children=html.Div(
@@ -59,17 +71,17 @@ def create_layout(app):
             style={'width': '100%', 'textAlign': 'center'}
         ),
         style={
-            'width': '90%',               # Container takes 90% of its parent width.
+            'width': '90%',
             'height': '60px',
             'lineHeight': '60px',
             'borderWidth': '1px',
             'borderStyle': 'dashed',
             'borderRadius': '5px',
-            'margin': '10px auto',        # Auto left/right margins to center it.
+            'margin': '10px auto',
             'backgroundColor': 'lightgrey',
-            'display': 'flex',            # Enable flexbox.
-            'justifyContent': 'center',   # Center children horizontally.
-            'alignItems': 'center'        # Center children vertically.
+            'display': 'flex',
+            'justifyContent': 'center',
+            'alignItems': 'center'
         },
         multiple=True 
     )
@@ -77,36 +89,48 @@ def create_layout(app):
     # Store to hold the current file list.
     file_store = dcc.Store(id="file-store", data=[])
 
-    # Ratio controls placed above the Angle min slider.
+    # Ratio controls placed above the angle sliders.
     ratio_controls = html.Div([
         html.Div([
-            html.Label("Width:", style={'marginRight': '10px'}),
+            html.Label("Width", style={'marginRight': '10px', 'fontSize': '18px'}),
             dcc.Input(
                 id='width-ratio-input',
                 type='number',
                 placeholder='e.g., 4',
                 value=4,
                 debounce=True,
-                style={'width': '50px'}
+                style={
+                    'width': '80px',
+                    'height': '30px',
+                    'fontSize': '16px'
+                }
             )
         ], style={'display': 'inline-block', 'marginRight': '20px'}),
         html.Div([
-            html.Label("Height:", style={'marginRight': '10px'}),
+            html.Label("Height", style={'marginRight': '10px', 'fontSize': '18px'}),
             dcc.Input(
                 id='height-ratio-input',
                 type='number',
                 placeholder='e.g., 3',
                 value=3,
                 debounce=True,
-                style={'width': '50px'}
+                style={
+                    'width': '80px',
+                    'height': '30px',
+                    'fontSize': '16px'
+                }
             )
-        ], style={'display': 'inline-block'})
+        ], style={'display': 'inline-block'}),
     ], style={'margin': '20px 10px', 'textAlign': 'center'})
 
     # Global slider controls.
+    # Let's build the marks with bigger font:
+    angle_marks = {i: {'label': str(i), 'style': {'fontSize': '18px'}} for i in range(0, 101, 10)}
+    global_sep_marks = {i: {'label': str(i), 'style': {'fontSize': '18px'}} for i in range(0, 101, 10)}
+
     global_controls = html.Div([
         html.Div([
-            html.Label("angle min:"),
+            html.Label("angle min", style={'fontSize': '18px'}),
             dcc.Slider(
                 id='angle-min-slider',
                 min=0,
@@ -114,12 +138,12 @@ def create_layout(app):
                 step=1,
                 value=10,
                 updatemode="drag",
-                marks={i: str(i) for i in range(0, 101, 10)},
+                marks=angle_marks,
                 tooltip={"placement": "bottom", "always_visible": True}
             )
         ], style={'margin': '10px', 'width': '45%', "display": "inline-block"}),
         html.Div([
-            html.Label("angle max:"),
+            html.Label("angle max", style={'fontSize': '18px'}),
             dcc.Slider(
                 id='angle-max-slider',
                 min=0,
@@ -127,12 +151,12 @@ def create_layout(app):
                 step=1,
                 value=90,
                 updatemode="drag",
-                marks={i: str(i) for i in range(0, 101, 10)},
+                marks=angle_marks,
                 tooltip={"placement": "bottom", "always_visible": True}
             )
         ], style={'margin': '10px', 'width': '45%', "display": "inline-block"}),
         html.Div([
-            html.Label("Global Separation:"),
+            html.Label("Global Separation", style={'fontSize': '18px'}),
             dcc.Slider(
                 id='global-sep-slider',
                 min=0,
@@ -140,7 +164,7 @@ def create_layout(app):
                 step=1,
                 value=0,
                 updatemode="drag",
-                marks={i: str(i) for i in range(0, 101, 10)},
+                marks=global_sep_marks,
                 tooltip={"placement": "bottom", "always_visible": True}
             )
         ], style={'margin': '20px', 'width': '90%'})
@@ -157,7 +181,6 @@ def create_layout(app):
         id="reset-button", 
         n_clicks=0, 
         style={
-            'margin': '10px',
             'padding': '15px 20px',
             'fontSize': '16px',
             'backgroundColor': 'orange',
@@ -166,12 +189,24 @@ def create_layout(app):
             'borderRadius': '5px'
         }
     )
-    save_button = html.Button(
-        "Save Plot", 
-        id="save-button", 
+    save_white_button = html.Button(
+        "Save Plot (White BG)", 
+        id="save-white-button", 
         n_clicks=0, 
         style={
-            'margin': '10px',
+            'padding': '15px 20px',
+            'fontSize': '16px',
+            'backgroundColor': 'blue',
+            'border': 'none',
+            'color': 'white',
+            'borderRadius': '5px',
+        }
+    )
+    save_transparent_button = html.Button(
+        "Save Plot (Transparent)", 
+        id="save-transparent-button", 
+        n_clicks=0, 
+        style={
             'padding': '15px 20px',
             'fontSize': '16px',
             'backgroundColor': 'green',
@@ -182,7 +217,22 @@ def create_layout(app):
     )
     download_component = dcc.Download(id="download")
 
-    # Graph container now only holds the graph.
+    # Arrange Reset and Save buttons on the same horizontal line.
+    button_row = html.Div(
+        [
+            reset_button,
+            html.Div(
+                [
+                    save_white_button,
+                    save_transparent_button
+                ],
+                style={'display': 'flex', 'gap': '10px', 'marginLeft': '20px'}
+            )
+        ],
+        style={'display': 'flex', 'alignItems': 'center', 'margin': '10px'}
+    )
+
+    # Graph container holds the graph.
     graph_container = html.Div(
         [
             html.Div(
@@ -202,7 +252,7 @@ def create_layout(app):
         style={
             'width': '50%',
             'position': 'relative',
-            'borderRight': '2px solid black',  # Only a right border for the plot.
+            'borderRight': '2px solid black',
             'padding': '5px'
         }
     )
@@ -210,15 +260,13 @@ def create_layout(app):
     # Controls container (takes up the other 50% of the window width).
     controls_container = html.Div(
         [
-            # The horizontal divider is styled to connect with the plot's right border.
-            reset_button,
-            save_button,
+            button_row,
             download_component,
             ratio_controls,
             global_controls,
-            html.Hr(style={'border': 'none', 'borderTop': '2px solid black'}),  # You may leave this default hr or remove if unnecessary.
+            html.Hr(style={'border': 'none', 'borderTop': '2px solid black'}),
             per_file_controls_container,
-            upload_component  # Only this component has a light grey background.
+            upload_component
         ],
         style={'width': '50%'}
     )
@@ -228,6 +276,9 @@ def create_layout(app):
         file_store,
         html.Div([graph_container, controls_container],
                  style={'display': 'flex', 'flexDirection': 'row', 'width': '100%'})
-    ], style={'font-family': 'Dejavu Sans'})
+    ], 
+    # Enforce a bigger default font:
+    style={'font-family': 'Dejavu Sans', 'fontSize': '18px'}
+    )
     
     return layout
