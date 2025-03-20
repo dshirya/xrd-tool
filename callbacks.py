@@ -1,28 +1,31 @@
 import dash
 import plotly.graph_objects as go
-from dash import dcc, html, Input, Output, State, ALL, callback_context
+from dash import dcc, Input, Output, State, ALL, callback_context
 import plotly.io as pio
 from utils import generate_figure, parse_contents
+from layout import create_file_control
+
 
 def register_callbacks(app):
     # Callback: Update the file store when files are uploaded.
     @app.callback(
-        Output("file-store", "data"),
-        Input("upload-data", "contents"),
-        State("upload-data", "filename"),
-        State("file-store", "data")
+    Output("file-store", "data"),
+    Input("upload-data", "contents"),
+    State("upload-data", "filename"),
+    State("file-store", "data")
     )
     def update_file_store(upload_contents, upload_filenames, current_files):
+        if current_files is None:
+            current_files = []
         if upload_contents is not None:
-            new_files = []
+            # Handle multiple files.
             if isinstance(upload_contents, list):
                 for contents, filename in zip(upload_contents, upload_filenames):
                     content = parse_contents(contents)
-                    new_files.append({"filename": filename, "content": content})
+                    current_files.append({"filename": filename, "content": content})
             else:
                 content = parse_contents(upload_contents)
-                new_files.append({"filename": upload_filenames, "content": content})
-            return new_files
+                current_files.append({"filename": upload_filenames, "content": content})
         return current_files
 
     # Callback: Update per-file controls based on current files.
@@ -35,39 +38,7 @@ def register_callbacks(app):
         if files is None:
             return controls
         for i, file in enumerate(files):
-            controls.append(
-                html.Div([
-                    html.Span(file["filename"], style={'display': 'inline-block', 'width': '200px', 'fontWeight': 'bold'}),
-                    html.Label("BG:", style={'margin-left': '20px'}),
-                    html.Div(
-                        dcc.Slider(
-                            id={'type': 'bg-slider', 'index': i},
-                            min=-10,
-                            max=50,
-                            step=0.5,
-                            value=0,
-                            updatemode="drag",
-                            marks={-10: "-10", 0: "0", 50: "50"},
-                            tooltip={"placement": "bottom", "always_visible": True}
-                        ),
-                        style={'display': 'inline-block', 'margin-left': '10px', 'width': '80%'}
-                    ),
-                    html.Label("Int:", style={'margin-left': '20px'}),
-                    html.Div(
-                        dcc.Slider(
-                            id={'type': 'int-slider', 'index': i},
-                            min=1,
-                            max=200,
-                            step=1,
-                            value=100,
-                            updatemode="drag",
-                            marks={1: "1", 100: "100", 200: "200"},
-                            tooltip={"placement": "bottom", "always_visible": True}
-                        ),
-                        style={'display': 'inline-block', 'margin-left': '10px', 'width': '80%'}
-                    )
-                ], style={'display': 'flex', 'align-items': 'center', 'margin-bottom': '20px'})
-            )
+            controls.append(create_file_control(i, file["filename"]))
         return controls
 
     # Callback: Update the graph based on slider inputs and current files.
@@ -91,13 +62,13 @@ def register_callbacks(app):
 
     # Callback: Update angle sliders based on graph interactions or reset button.
     @app.callback(
-    Output('angle-min-slider', 'value'),
-    Output('angle-max-slider', 'value'),
-    Input('graph', 'relayoutData'),
-    Input('reset-button', 'n_clicks'),
-    State('angle-min-slider', 'value'),
-    State('angle-max-slider', 'value')
-)
+        Output('angle-min-slider', 'value'),
+        Output('angle-max-slider', 'value'),
+        Input('graph', 'relayoutData'),
+        Input('reset-button', 'n_clicks'),
+        State('angle-min-slider', 'value'),
+        State('angle-max-slider', 'value')
+    )
     def update_angle_sliders_and_reset(relayoutData, n_clicks, current_min, current_max):
         ctx = callback_context  # Use the global callback_context
         if not ctx.triggered:
@@ -117,6 +88,7 @@ def register_callbacks(app):
                 except Exception:
                     pass
         return current_min, current_max
+
     # Callback: Reset global separation and per-file controls.
     @app.callback(
         Output('global-sep-slider', 'value'),
@@ -132,6 +104,31 @@ def register_callbacks(app):
         bg_defaults = [0] * num_files
         int_defaults = [100] * num_files
         return 0, bg_defaults, int_defaults
+    
+    # Callback: Update the aspect ratio of the graph container.
+    @app.callback(
+        Output('graph-wrapper', 'style'),
+        Input('width-ratio-input', 'value'),
+        Input('height-ratio-input', 'value'),
+        prevent_initial_call=True
+    )
+    def update_aspect_ratio(width_ratio, height_ratio):
+        try:
+            w = float(width_ratio)
+            h = float(height_ratio)
+            padding_bottom = f"{(h / w) * 100}%"
+            return {
+                'position': 'relative',
+                'width': '100%',
+                'paddingBottom': padding_bottom
+            }
+        except Exception:
+            # Return default 4:3 aspect ratio if parsing fails
+            return {
+                'position': 'relative',
+                'width': '100%',
+                'paddingBottom': '75%'
+            }
 
     # Callback: Save the current plot in high resolution when the save button is clicked.
     @app.callback(
